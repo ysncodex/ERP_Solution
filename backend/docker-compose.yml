@@ -1,0 +1,34 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: cafe-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: cafe
+      POSTGRES_PASSWORD: cafe_password
+      POSTGRES_DB: cafe_erp
+    ports:
+      # Host 5433 → container 5432 (host 5432 is taken by a local Postgres install).
+      - "5433:5432"
+    volumes:
+      - cafe_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cafe -d cafe_erp"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Lightweight web UI to inspect the database at http://localhost:8080
+  # (System: PostgreSQL, Server: postgres, User: cafe, Password: cafe_password, DB: cafe_erp)
+  adminer:
+    image: adminer:latest
+    container_name: cafe-adminer
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  cafe_pgdata:
