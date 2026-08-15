@@ -1,0 +1,20 @@
+# https://docs.netlify.com/configure-builds/file-based-configuration/
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  # Pin Node so rolldown-vite builds consistently (matches local dev).
+  NODE_VERSION = "20"
+
+# IMPORTANT: set VITE_API_URL in the Netlify dashboard (Site settings →
+# Environment variables) to your deployed backend, e.g.
+#   VITE_API_URL = https://erp-solutions-backend.onrender.com/api
+# Without it the build falls back to http://localhost:3000/api and the live
+# site cannot reach the API.
+
+# SPA routing fallback (also covered by public/_redirects → dist/_redirects).
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

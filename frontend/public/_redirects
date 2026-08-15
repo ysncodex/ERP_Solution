@@ -1,0 +1,3 @@
+# Netlify, Cloudflare Pages: serve SPA for client-side routes (BrowserRouter).
+# 200 = rewrite (URL stays the same; no redirect loop).
+/*    /index.html   200
