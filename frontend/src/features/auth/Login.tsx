@@ -28,7 +28,7 @@ const LOGIN_PARTICLES = Array.from({ length: 20 }, (_, id) => ({
   animationDuration: `${15 + Math.random() * 10}s`,
 }));
 
-type SignInRole = StaticUserRole;
+type SignInRole = Exclude<StaticUserRole, 'visitor'>;
 
 const SIGN_IN_ROLES: {
   role: SignInRole;
