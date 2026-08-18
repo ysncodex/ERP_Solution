@@ -28,6 +28,7 @@ import {
   updateTransactionOnServer,
 } from './erp/apiRepository';
 import { catalogService, suppliersService, fundsService } from '@/core/api/services';
+import { waitForApi } from '@/core/api/client';
 
 import { ERPContext } from './ERPContextDef';
 import { ERPActionsContext, type ERPActions } from './ERPActionsContextDef';
@@ -195,6 +196,9 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
 
     void (async () => {
+      await waitForApi();
+      if (cancelled) return;
+
       // 1) Paint Live Account Balances ASAP.
       await Promise.all([refreshFundBalances(), refreshFundMovements(), refreshCatalogs()]);
       if (cancelled) return;

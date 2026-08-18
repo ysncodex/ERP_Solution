@@ -2,7 +2,7 @@
 
 React single-page app for the cafe POS, dashboards, expenses, funds, inventory, and reports.
 
-Works with the [`backend`](../backend/) API in production. If the API is unreachable, optional env passwords can still unlock a local fallback login.
+Works with the [`backend`](../backend/) API in production. Offline password fallback is for **local development only** — the live Netlify build always uses the API.
 
 ---
 
@@ -25,8 +25,8 @@ Point `VITE_API_URL` at the API (default `http://localhost:3000/api`) and keep t
 | Variable | Required | Description |
 | -------- | -------- | ----------- |
 | `VITE_API_URL` | Yes in production | Backend base URL, including `/api` |
-| `VITE_OWNER_PASSWORD` | No | Offline owner login fallback |
-| `VITE_MANAGER_PASSWORD` | No | Offline manager login / PIN fallback |
+| `VITE_OWNER_PASSWORD` | No | Local-only offline owner login fallback (ignored as a login path in production) |
+| `VITE_MANAGER_PASSWORD` | No | Local-only offline manager login / PIN fallback |
 
 Set production values in the **Netlify dashboard**, not in committed files.
 
@@ -64,7 +64,7 @@ Role access is defined in `src/shared/utils/roleAccess.ts`. Owner and Manager ca
 
 1. **Owner / Manager** — `POST /api/auth/login` with role + password → JWT
 2. **Visitor** — `POST /api/auth/visitor` (no password) → read-only JWT, full navigation
-3. **Offline fallback** — if the API fails, Owner/Manager can still sign in with `VITE_OWNER_PASSWORD` / `VITE_MANAGER_PASSWORD`. Visitor can still open the shell, but live data needs the API.
+3. **Offline fallback** — local development only, if the API is down, using `VITE_OWNER_PASSWORD` / `VITE_MANAGER_PASSWORD`. Production always talks to the live API.
 
 ---
 
@@ -112,7 +112,7 @@ frontend/
 1. Base directory: `frontend`
 2. Build command: `npm run build`
 3. Publish directory: `dist`
-4. Environment: `VITE_API_URL=https://your-api.onrender.com/api`
+4. Environment: `VITE_API_URL=https://erp-solution-c32n.onrender.com/api`
 
 SPA fallback is in `public/_redirects` and `netlify.toml`. `vercel.json` is included if you host on Vercel instead.
 

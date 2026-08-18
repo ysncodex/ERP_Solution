@@ -18,6 +18,7 @@ import {
   type StaticUserRole,
 } from '@/shared/utils';
 import { authService } from '@/core/api/services';
+import { waitForApi } from '@/core/api/client';
 import loginBg from '@/assets/img/login.jpg';
 
 const LOGIN_PARTICLES = Array.from({ length: 20 }, (_, id) => ({
@@ -86,6 +87,7 @@ export default function LoginPage() {
   const roleLabel = signInRole === 'owner' ? 'Owner' : 'Manager';
 
   const enterAsVisitor = async () => {
+    await waitForApi();
     const res = await authService.loginAsVisitor();
     toast.success(formatLoginSuccessMessage(res.user.name));
     navigate(ROLE_HOME_PATH.visitor);
@@ -100,13 +102,17 @@ export default function LoginPage() {
       const status = axiosErr.response?.status;
 
       if (!axiosErr.response) {
-        try {
-          const user = loginAs('visitor');
-          toast.success(formatLoginSuccessMessage(user.name));
-        } catch {
-          // ignore storage errors
+        if (!import.meta.env.PROD) {
+          try {
+            const user = loginAs('visitor');
+            toast.success(formatLoginSuccessMessage(user.name));
+          } catch {
+            // ignore storage errors
+          }
+          navigate(ROLE_HOME_PATH.visitor);
+          return;
         }
-        navigate(ROLE_HOME_PATH.visitor);
+        toast.error('Cannot reach the server. Wait a few seconds and try again.');
         return;
       }
 
@@ -124,6 +130,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      await waitForApi();
       const res = await authService.login({ role: signInRole, password: data.password });
       toast.success(formatLoginSuccessMessage(res.user.name));
       navigate(ROLE_HOME_PATH[signInRole]);
@@ -132,7 +139,7 @@ export default function LoginPage() {
       const status = axiosErr.response?.status;
 
       if (!axiosErr.response) {
-        if (validateRolePassword(signInRole, data.password)) {
+        if (!import.meta.env.PROD && validateRolePassword(signInRole, data.password)) {
           try {
             const user = loginAs(signInRole);
             toast.success(formatLoginSuccessMessage(user.name));
@@ -142,7 +149,7 @@ export default function LoginPage() {
           navigate(ROLE_HOME_PATH[signInRole]);
           return;
         }
-        toast.error(`Wrong password for ${roleLabel}`);
+        toast.error('Cannot reach the server. Wait a few seconds and try again.');
       } else if (status === 429) {
         toast.error('Too many attempts. Please wait a moment and try again.');
       } else if (status === 401 || status === 400) {

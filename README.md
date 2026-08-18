@@ -7,12 +7,12 @@ ERP_Solutions is a full-stack system for cafe and restaurant teams in Bangladesh
 | | |
 | --- | --- |
 | **Version** | 2.6 |
-| **Live app** | _Add your Netlify URL here_ |
-| **API health** | _Add your Render `/api/health` URL here_ |
+| **Live app** | [erpasolutions.netlify.app](https://erpasolutions.netlify.app) |
+| **API health** | [erp-solution-c32n.onrender.com/api/health](https://erp-solution-c32n.onrender.com/api/health) |
 
 > **Try it without a password:** open the live app and click **Explore as Visitor**. You can open every screen. You cannot save, edit, or delete.
 
-> Before you share this repo on LinkedIn, replace the two placeholders above with your production links.
+> The first load after idle time can take up to a minute while the free-tier API wakes up.
 
 ---
 
@@ -153,7 +153,7 @@ Passwords and secrets are **never** stored in source. Use `.env` locally and hos
 | Where | Variables |
 | ----- | --------- |
 | `backend/.env` | `DATABASE_URL`, `JWT_SECRET`, `CORS_ORIGIN`, `OWNER_PASSWORD`, `MANAGER_PASSWORD` |
-| `frontend/.env` | `VITE_API_URL` (required in production). Optional offline fallback: `VITE_OWNER_PASSWORD`, `VITE_MANAGER_PASSWORD` |
+| `frontend/.env` | `VITE_API_URL` (required in production). Local-only offline fallback: `VITE_OWNER_PASSWORD`, `VITE_MANAGER_PASSWORD` |
 
 Copy from `.env.example` files. Never commit a real `.env`.
 
@@ -163,8 +163,8 @@ Copy from `.env.example` files. Never commit a real `.env`.
 
 | Service | Host | Notes |
 | ------- | ---- | ----- |
-| Frontend | Netlify | Base directory `frontend`. Set `VITE_API_URL` to `https://your-api.onrender.com/api` |
-| Backend | Render | Root directory `backend`. Set `DATABASE_URL`, `JWT_SECRET`, `CORS_ORIGIN` |
+| Frontend | Netlify | Base directory `frontend`. Set `VITE_API_URL` to `https://erp-solution-c32n.onrender.com/api` |
+| Backend | Render | Root directory `backend`. Set `CORS_ORIGIN` to `https://erpasolutions.netlify.app` (also allow-listed in code) |
 | Database | Neon PostgreSQL | Use `sslmode=require` |
 
 After the first backend deploy, run `npm run db:deploy` and `npm run db:seed` once against production so Owner, Manager, and the read-only **Visitor** account exist. (`db:deploy` is already in the Render build command; seed is a one-off.)

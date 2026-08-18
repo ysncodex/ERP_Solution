@@ -2,7 +2,9 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
-import { env, isProd } from './config/env.js';
+import { isProd } from './config/env.js';
+import { corsOptions } from './config/cors.js';
+import { appState } from './lib/appState.js';
 import { errorHandler, notFound } from './middleware/error.js';
 import authRoutes from './modules/auth/auth.routes.js';
 import salesRoutes from './modules/sales/sales.routes.js';
@@ -17,11 +19,14 @@ export function createApp() {
 
   // ── Security & infra ───────────────────────────────────────────────────────
   app.disable('x-powered-by');
-  app.use(helmet());
+  // CORS first so every response (including errors) can include ACAO.
+  app.use(cors(corsOptions));
   app.use(
-    cors({
-      origin: env.CORS_ORIGIN.split(',').map((o) => o.trim()),
-      credentials: true,
+    helmet({
+      // APIs must be readable from the Netlify origin. Helmet's default
+      // Cross-Origin-Resource-Policy: same-origin blocks that.
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+      crossOriginEmbedderPolicy: false,
     }),
   );
   app.use(express.json({ limit: '1mb' }));
@@ -29,7 +34,14 @@ export function createApp() {
 
   // ── Health check ─────────────────────────────────────────────────────────--
   app.get('/api/health', (_req, res) => {
-    res.json({ status: 'ok', uptime: process.uptime(), timestamp: new Date().toISOString() });
+    // Always 200 once Express is listening so Render routes traffic (and CORS
+    // preflight) during database connect. Body.status tells the frontend when
+    // queries are actually safe.
+    res.json({
+      status: appState.dbReady ? 'ok' : 'starting',
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString(),
+    });
   });
 
   // ── Domain routes ────────────────────────────────────────────────────────--

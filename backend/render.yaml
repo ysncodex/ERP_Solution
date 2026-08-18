@@ -26,7 +26,7 @@ services:
         generateValue: true
       - key: JWT_EXPIRES_IN
         value: 7d
-      # CORS_ORIGIN — set to your Netlify site URL, e.g. https://your-site.netlify.app
-      # Multiple origins allowed, comma-separated.
+      # Extra allowed origins (comma-separated). The live Netlify site is also
+      # allow-listed in code so production does not depend on this being set.
       - key: CORS_ORIGIN
-        sync: false
+        value: https://erpasolutions.netlify.app

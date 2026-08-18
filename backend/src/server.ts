@@ -1,11 +1,13 @@
 import { createApp } from './app.js';
 import { env } from './config/env.js';
+import { appState } from './lib/appState.js';
 import { prisma } from './lib/prisma.js';
 
 async function main() {
-  // Verify the database connection before accepting traffic.
-  await prisma.$connect();
-
+  // Listen immediately so CORS preflight (OPTIONS) succeeds while Postgres
+  // is still connecting. A sleeping Render instance otherwise returns a 502
+  // HTML page with no Access-Control-Allow-Origin, which the browser reports
+  // as a CORS failure.
   const app = createApp();
   const server = app.listen(env.PORT, () => {
     if (env.NODE_ENV !== 'production') {
@@ -14,10 +16,20 @@ async function main() {
     }
   });
 
+  try {
+    await prisma.$connect();
+    appState.dbReady = true;
+  } catch (err) {
+    console.error('Database connection failed:', err);
+    server.close();
+    process.exit(1);
+  }
+
   const shutdown = async (signal: string) => {
     if (env.NODE_ENV !== 'production') {
       console.log(`${signal} received — shutting down gracefully...`);
     }
+    appState.dbReady = false;
     server.close();
     await prisma.$disconnect();
     process.exit(0);
@@ -29,6 +41,7 @@ async function main() {
 
 main().catch(async (err) => {
   console.error('Fatal startup error:', err);
+  appState.dbReady = false;
   await prisma.$disconnect();
   process.exit(1);
 });

@@ -42,7 +42,7 @@ Copy `.env.example` and fill in real values. **Do not commit `.env`.**
 | `DATABASE_URL` | Yes | PostgreSQL connection string |
 | `JWT_SECRET` | Yes | At least 16 characters |
 | `JWT_EXPIRES_IN` | No | Token lifetime (default `7d`) |
-| `CORS_ORIGIN` | No | Frontend origin (default `http://localhost:5173`). Comma-separated for multiple |
+| `CORS_ORIGIN` | No | Extra frontend origins, comma-separated. Production always allows `https://erpasolutions.netlify.app` in code. |
 | `PORT` | No | Server port (default `3000`) |
 | `OWNER_PASSWORD` | Seed | Owner password for `db:seed` |
 | `MANAGER_PASSWORD` | Seed | Manager password for `db:seed` |
@@ -90,7 +90,7 @@ All routes sit under `/api`. Protected routes need `Authorization: Bearer <token
 - `POST /auth/login` — `{ role, password }` → JWT (rate limited)
 - `POST /auth/visitor` — passwordless read-only session (rate limited)
 - `GET /auth/verify` — validate token
-- `GET /health` — liveness (`{ status, uptime, timestamp }`)
+- `GET /health` — liveness (`{ status: "ok" | "starting", uptime, timestamp }`)
 
 ### Sales
 
@@ -134,7 +134,7 @@ backend/
 ├── src/
 │   ├── server.ts
 │   ├── app.ts
-│   ├── config/env.ts
+│   ├── config/                # env + CORS allow-list
 │   ├── lib/prisma.ts
 │   ├── middleware/            # JWT auth, errors
 │   ├── modules/               # auth, sales, expenses, funds, reports, menu, suppliers
@@ -155,7 +155,11 @@ backend/
 4. Start: `npm start`
 5. Run `npm run db:seed` once against the production database so Owner, Manager, and Visitor exist
 
-Set `CORS_ORIGIN` to your Netlify frontend URL (comma-separated if you have a preview domain too).
+Set `CORS_ORIGIN` in the Render dashboard to exactly:
+
+`https://erpasolutions.netlify.app`
+
+No trailing slash. The API also allow-lists this origin in code so a missing env var cannot block the live site.
 
 Blueprint: `render.yaml`.
 

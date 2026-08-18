@@ -16,9 +16,9 @@ const WARMUP_TOAST_ID = 'server-warmup';
 const DEFAULT_TIMEOUT = 45_000;
 
 /** Automatic retry budget for transient/cold-start failures. */
-const MAX_RETRIES = 4;
-const BASE_RETRY_DELAY = 800; // ms — grows exponentially with jitter.
-const MAX_RETRY_DELAY = 8_000; // ms — cap per-attempt backoff.
+const MAX_RETRIES = 8;
+const BASE_RETRY_DELAY = 1000; // ms — grows exponentially with jitter.
+const MAX_RETRY_DELAY = 10_000; // ms — cap per-attempt backoff.
 
 /** Per-request retry bookkeeping (attached to the axios config). */
 interface RetryableConfig extends InternalAxiosRequestConfig {
@@ -98,6 +98,39 @@ function notifyWarmedUp(): void {
   if (!isWarmingUp) return;
   isWarmingUp = false;
   toast.dismiss(WARMUP_TOAST_ID);
+}
+
+/**
+ * Poll GET /health with no auth header (simple request, no preflight) until
+ * the Render instance is actually accepting traffic. Call this once after
+ * login before firing authenticated dashboard fetches.
+ */
+export async function waitForApi(maxMs = 90_000): Promise<boolean> {
+  const base = (API_BASE_URL ?? '').replace(/\/$/, '');
+  if (!base) return false;
+
+  const healthUrl = `${base}/health`;
+  const started = Date.now();
+  notifyWarmingUp();
+
+  while (Date.now() - started < maxMs) {
+    try {
+      const res = await fetch(healthUrl, { method: 'GET', cache: 'no-store' });
+      if (res.ok) {
+        const body = (await res.json().catch(() => null)) as { status?: string } | null;
+        if (body?.status === 'ok') {
+          notifyWarmedUp();
+          return true;
+        }
+      }
+    } catch {
+      // Cold start / network — keep polling.
+    }
+    await wait(1500);
+  }
+
+  notifyWarmedUp();
+  return false;
 }
 
 // Response interceptor - unwrap data, retry transient failures, handle auth.

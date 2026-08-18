@@ -9,7 +9,7 @@
 
 # IMPORTANT: set VITE_API_URL in the Netlify dashboard (Site settings →
 # Environment variables) to your deployed backend, e.g.
-#   VITE_API_URL = https://erp-solutions-backend.onrender.com/api
+#   VITE_API_URL = https://erp-solution-c32n.onrender.com/api
 # Without it the build falls back to http://localhost:3000/api and the live
 # site cannot reach the API.
 
