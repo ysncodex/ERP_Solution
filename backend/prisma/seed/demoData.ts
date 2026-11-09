@@ -1,7 +1,8 @@
 /**
- * Demo dataset for ERP_Solutions — June, July, and August 2026.
+ * Demo dataset for ERP_Solutions — a rolling window ending today.
  *
- * Batched inserts (createMany) so seeding stays fast on remote Postgres (Neon).
+ * Re-run the seed any time to refresh the window so dashboards never look stale.
+ * Batched inserts (createMany) keep seeding fast on remote Postgres (Neon).
  * Stable `demo-*` / `ORD-DEMO-*` ids make re-seeding idempotent.
  */
 
@@ -15,8 +16,8 @@ type PosChannel = 'in_store' | 'takeaway' | 'delivery';
 type UnitType = 'kg' | 'g' | 'L' | 'ml' | 'pcs' | 'box' | 'pack';
 
 const DEMO_PREFIX = 'demo-';
-const START = '2026-06-01';
-const END = '2026-08-15';
+/** How many days of history to generate, ending today. */
+const WINDOW_DAYS = 90;
 const BATCH = 100;
 
 const CASHIERS = ['Owner', 'Manager', 'Ayesha', 'Rahim', 'Nusrat'] as const;
@@ -32,12 +33,42 @@ const CUSTOMERS = [
 ] as const;
 
 const SUPPLIERS = [
-  { id: `${DEMO_PREFIX}sup-dairy`, name: 'Fresh Dairy BD', phone: '01711000001', address: 'Mirpur, Dhaka' },
-  { id: `${DEMO_PREFIX}sup-coffee`, name: 'Bean Traders', phone: '01711000002', address: 'Tejgaon, Dhaka' },
-  { id: `${DEMO_PREFIX}sup-pack`, name: 'Cup & Pack Ltd', phone: '01711000003', address: 'Motijheel, Dhaka' },
-  { id: `${DEMO_PREFIX}sup-produce`, name: 'Green Valley Produce', phone: '01711000004', address: 'Kawran Bazar, Dhaka' },
-  { id: `${DEMO_PREFIX}sup-bakery`, name: 'Sweet Crumb Bakery', phone: '01711000005', address: 'Dhanmondi, Dhaka' },
-  { id: `${DEMO_PREFIX}sup-chicken`, name: 'City Poultry Supply', phone: '01711000006', address: 'Mohakhali, Dhaka' },
+  {
+    id: `${DEMO_PREFIX}sup-dairy`,
+    name: 'Fresh Dairy BD',
+    phone: '01711000001',
+    address: 'Mirpur, Dhaka',
+  },
+  {
+    id: `${DEMO_PREFIX}sup-coffee`,
+    name: 'Bean Traders',
+    phone: '01711000002',
+    address: 'Tejgaon, Dhaka',
+  },
+  {
+    id: `${DEMO_PREFIX}sup-pack`,
+    name: 'Cup & Pack Ltd',
+    phone: '01711000003',
+    address: 'Motijheel, Dhaka',
+  },
+  {
+    id: `${DEMO_PREFIX}sup-produce`,
+    name: 'Green Valley Produce',
+    phone: '01711000004',
+    address: 'Kawran Bazar, Dhaka',
+  },
+  {
+    id: `${DEMO_PREFIX}sup-bakery`,
+    name: 'Sweet Crumb Bakery',
+    phone: '01711000005',
+    address: 'Dhanmondi, Dhaka',
+  },
+  {
+    id: `${DEMO_PREFIX}sup-chicken`,
+    name: 'City Poultry Supply',
+    phone: '01711000006',
+    address: 'Mohakhali, Dhaka',
+  },
 ] as const;
 
 const FIXED_ITEMS = [
@@ -49,17 +80,83 @@ const FIXED_ITEMS = [
   { id: `${DEMO_PREFIX}fci-cleaning`, name: 'Cleaning Service' },
 ] as const;
 
-const PRODUCT_ITEMS: { id: string; name: string; unit: UnitType; unitPrice: number; supplierId: string }[] = [
-  { id: `${DEMO_PREFIX}pci-milk`, name: 'Fresh Milk', unit: 'L', unitPrice: 95, supplierId: SUPPLIERS[0].id },
-  { id: `${DEMO_PREFIX}pci-beans`, name: 'Coffee Beans', unit: 'kg', unitPrice: 1450, supplierId: SUPPLIERS[1].id },
-  { id: `${DEMO_PREFIX}pci-cups`, name: 'Paper Cups', unit: 'pack', unitPrice: 320, supplierId: SUPPLIERS[2].id },
-  { id: `${DEMO_PREFIX}pci-boba`, name: 'Tapioca Pearls', unit: 'kg', unitPrice: 480, supplierId: SUPPLIERS[3].id },
-  { id: `${DEMO_PREFIX}pci-syrup`, name: 'Flavored Syrup', unit: 'L', unitPrice: 650, supplierId: SUPPLIERS[1].id },
-  { id: `${DEMO_PREFIX}pci-cream`, name: 'Whipping Cream', unit: 'L', unitPrice: 420, supplierId: SUPPLIERS[0].id },
-  { id: `${DEMO_PREFIX}pci-waffle`, name: 'Waffle Mix', unit: 'kg', unitPrice: 380, supplierId: SUPPLIERS[4].id },
-  { id: `${DEMO_PREFIX}pci-chicken`, name: 'Chicken Fillet', unit: 'kg', unitPrice: 520, supplierId: SUPPLIERS[5].id },
-  { id: `${DEMO_PREFIX}pci-mango`, name: 'Mango Pulp', unit: 'kg', unitPrice: 210, supplierId: SUPPLIERS[3].id },
-  { id: `${DEMO_PREFIX}pci-straw`, name: 'Straws & Lids', unit: 'box', unitPrice: 280, supplierId: SUPPLIERS[2].id },
+const PRODUCT_ITEMS: {
+  id: string;
+  name: string;
+  unit: UnitType;
+  unitPrice: number;
+  supplierId: string;
+}[] = [
+  {
+    id: `${DEMO_PREFIX}pci-milk`,
+    name: 'Fresh Milk',
+    unit: 'L',
+    unitPrice: 95,
+    supplierId: SUPPLIERS[0].id,
+  },
+  {
+    id: `${DEMO_PREFIX}pci-beans`,
+    name: 'Coffee Beans',
+    unit: 'kg',
+    unitPrice: 1450,
+    supplierId: SUPPLIERS[1].id,
+  },
+  {
+    id: `${DEMO_PREFIX}pci-cups`,
+    name: 'Paper Cups',
+    unit: 'pack',
+    unitPrice: 320,
+    supplierId: SUPPLIERS[2].id,
+  },
+  {
+    id: `${DEMO_PREFIX}pci-boba`,
+    name: 'Tapioca Pearls',
+    unit: 'kg',
+    unitPrice: 480,
+    supplierId: SUPPLIERS[3].id,
+  },
+  {
+    id: `${DEMO_PREFIX}pci-syrup`,
+    name: 'Flavored Syrup',
+    unit: 'L',
+    unitPrice: 650,
+    supplierId: SUPPLIERS[1].id,
+  },
+  {
+    id: `${DEMO_PREFIX}pci-cream`,
+    name: 'Whipping Cream',
+    unit: 'L',
+    unitPrice: 420,
+    supplierId: SUPPLIERS[0].id,
+  },
+  {
+    id: `${DEMO_PREFIX}pci-waffle`,
+    name: 'Waffle Mix',
+    unit: 'kg',
+    unitPrice: 380,
+    supplierId: SUPPLIERS[4].id,
+  },
+  {
+    id: `${DEMO_PREFIX}pci-chicken`,
+    name: 'Chicken Fillet',
+    unit: 'kg',
+    unitPrice: 520,
+    supplierId: SUPPLIERS[5].id,
+  },
+  {
+    id: `${DEMO_PREFIX}pci-mango`,
+    name: 'Mango Pulp',
+    unit: 'kg',
+    unitPrice: 210,
+    supplierId: SUPPLIERS[3].id,
+  },
+  {
+    id: `${DEMO_PREFIX}pci-straw`,
+    name: 'Straws & Lids',
+    unit: 'box',
+    unitPrice: 280,
+    supplierId: SUPPLIERS[2].id,
+  },
 ];
 
 function mulberry32(seed: number) {
@@ -77,9 +174,20 @@ function pick<T>(rng: () => number, list: readonly T[]): T {
   return list[Math.floor(rng() * list.length)]!;
 }
 
+/** Today as YYYY-MM-DD (UTC). */
+function todayKey(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+/** Add n days to a YYYY-MM-DD key. */
+function addDaysKey(key: string, n: number): string {
+  const [y, m, d] = key.split('-').map(Number) as [number, number, number];
+  return new Date(Date.UTC(y, m - 1, d, 12, 0, 0, 0) + n * 86_400_000).toISOString().slice(0, 10);
+}
+
 function eachDay(from: string, to: string): string[] {
   const out: string[] = [];
-  const [fy, fm, fd] = from.split('-').map(Number);
+  const [fy, fm, fd] = from.split('-').map(Number) as [number, number, number];
   const end = parseBusinessDate(to).getTime();
   let cur = Date.UTC(fy, fm - 1, fd, 12, 0, 0, 0);
   while (cur <= end) {
@@ -99,7 +207,7 @@ function pad(n: number, width = 4): string {
 
 async function createManyBatched<T extends object>(
   rows: T[],
-  insert: (chunk: T[]) => Promise<unknown>,
+  insert: (chunk: T[]) => Promise<unknown>
 ) {
   for (let i = 0; i < rows.length; i += BATCH) {
     await insert(rows.slice(i, i + BATCH));
@@ -109,10 +217,16 @@ async function createManyBatched<T extends object>(
 /** Wipe previous demo rows (safe to re-run seed). */
 export async function clearDemoData(prisma: PrismaClient) {
   await prisma.orderItem.deleteMany({
-    where: { order: { OR: [{ id: { startsWith: DEMO_PREFIX } }, { orderNumber: { startsWith: 'ORD-DEMO-' } }] } },
+    where: {
+      order: {
+        OR: [{ id: { startsWith: DEMO_PREFIX } }, { orderNumber: { startsWith: 'ORD-DEMO-' } }],
+      },
+    },
   });
   await prisma.order.deleteMany({
-    where: { OR: [{ id: { startsWith: DEMO_PREFIX } }, { orderNumber: { startsWith: 'ORD-DEMO-' } }] },
+    where: {
+      OR: [{ id: { startsWith: DEMO_PREFIX } }, { orderNumber: { startsWith: 'ORD-DEMO-' } }],
+    },
   });
   await prisma.productCostRecord.deleteMany({ where: { id: { startsWith: DEMO_PREFIX } } });
   await prisma.fixedCostRecord.deleteMany({ where: { id: { startsWith: DEMO_PREFIX } } });
@@ -125,7 +239,14 @@ export async function clearDemoData(prisma: PrismaClient) {
 
 export async function seedDemoData(prisma: PrismaClient) {
   const rng = mulberry32(20260815);
+
+  // Rolling window: the last WINDOW_DAYS days, ending today.
+  const END = todayKey();
+  const START = addDaysKey(END, -(WINDOW_DAYS - 1));
   const days = eachDay(START, END);
+  /** Business date `n` days after the window start (clamped to the window). */
+  const at = (n: number) => parseBusinessDate(addDaysKey(START, Math.min(n, days.length - 1)));
+
   const menu = SEED_MENU.filter((m) => m.available);
   if (menu.length === 0) throw new Error('SEED_MENU is empty — seed menu first');
 
@@ -158,20 +279,96 @@ export async function seedDemoData(prisma: PrismaClient) {
     string,
     (typeof funds)[number]
   >;
-  const owner = await prisma.user.findFirst({ where: { role: 'owner' } });
+  // Real owner only — the passwordless demo owner must not be the creator.
+  const owner = await prisma.user.findFirst({ where: { role: 'owner', isDemo: false } });
 
   const balances: Record<string, number> = { cash: 0, bank: 0, bkash: 0, reserve: 0 };
   // Modest cafe-scale openings — sales fund most expenses; keep end balances realistic.
+  // Dates are offsets from the window start so the story stays inside the window.
   const fundRows: Prisma.FundMovementCreateManyInput[] = [
-    { id: `${DEMO_PREFIX}fnd-open-cash`, movementType: 'opening', toAccountId: fundByType.cash!.id, amount: 20000, transactionDate: parseBusinessDate('2026-06-01'), notes: 'Opening cash float — June', createdById: owner?.id },
-    { id: `${DEMO_PREFIX}fnd-open-bank`, movementType: 'opening', toAccountId: fundByType.bank!.id, amount: 95000, transactionDate: parseBusinessDate('2026-06-01'), notes: 'Opening bank balance — June', createdById: owner?.id },
-    { id: `${DEMO_PREFIX}fnd-open-bkash`, movementType: 'opening', toAccountId: fundByType.bkash!.id, amount: 12000, transactionDate: parseBusinessDate('2026-06-01'), notes: 'Opening bKash wallet — June', createdById: owner?.id },
-    { id: `${DEMO_PREFIX}fnd-open-reserve`, movementType: 'opening', toAccountId: fundByType.reserve!.id, amount: 25000, transactionDate: parseBusinessDate('2026-06-01'), notes: 'Emergency reserve — June', createdById: owner?.id },
-    { id: `${DEMO_PREFIX}fnd-add-jul`, movementType: 'add', toAccountId: fundByType.bank!.id, amount: 20000, transactionDate: parseBusinessDate('2026-07-05'), notes: 'Owner capital top-up — July', createdById: owner?.id },
-    { id: `${DEMO_PREFIX}fnd-xfer-jul`, movementType: 'transfer', fromAccountId: fundByType.bank!.id, toAccountId: fundByType.cash!.id, amount: 8000, transactionDate: parseBusinessDate('2026-07-12'), notes: 'Bank → cash float refill', createdById: owner?.id },
-    { id: `${DEMO_PREFIX}fnd-xfer-aug`, movementType: 'transfer', fromAccountId: fundByType.bkash!.id, toAccountId: fundByType.bank!.id, amount: 5000, transactionDate: parseBusinessDate('2026-08-03'), notes: 'Settle bKash to bank', createdById: owner?.id },
-    { id: `${DEMO_PREFIX}fnd-add-aug`, movementType: 'add', toAccountId: fundByType.cash!.id, amount: 5000, transactionDate: parseBusinessDate('2026-08-10'), notes: 'Weekend cash float boost', createdById: owner?.id },
-    { id: `${DEMO_PREFIX}fnd-wd-aug`, movementType: 'withdraw', fromAccountId: fundByType.reserve!.id, amount: 3000, transactionDate: parseBusinessDate('2026-08-14'), notes: 'Equipment maintenance withdraw', createdById: owner?.id },
+    {
+      id: `${DEMO_PREFIX}fnd-open-cash`,
+      movementType: 'opening',
+      toAccountId: fundByType.cash!.id,
+      amount: 20000,
+      transactionDate: at(0),
+      notes: 'Opening cash float',
+      createdById: owner?.id,
+    },
+    {
+      id: `${DEMO_PREFIX}fnd-open-bank`,
+      movementType: 'opening',
+      toAccountId: fundByType.bank!.id,
+      amount: 95000,
+      transactionDate: at(0),
+      notes: 'Opening bank balance',
+      createdById: owner?.id,
+    },
+    {
+      id: `${DEMO_PREFIX}fnd-open-bkash`,
+      movementType: 'opening',
+      toAccountId: fundByType.bkash!.id,
+      amount: 12000,
+      transactionDate: at(0),
+      notes: 'Opening bKash wallet',
+      createdById: owner?.id,
+    },
+    {
+      id: `${DEMO_PREFIX}fnd-open-reserve`,
+      movementType: 'opening',
+      toAccountId: fundByType.reserve!.id,
+      amount: 25000,
+      transactionDate: at(0),
+      notes: 'Emergency reserve',
+      createdById: owner?.id,
+    },
+    {
+      id: `${DEMO_PREFIX}fnd-add-1`,
+      movementType: 'add',
+      toAccountId: fundByType.bank!.id,
+      amount: 20000,
+      transactionDate: at(34),
+      notes: 'Owner capital top-up',
+      createdById: owner?.id,
+    },
+    {
+      id: `${DEMO_PREFIX}fnd-xfer-1`,
+      movementType: 'transfer',
+      fromAccountId: fundByType.bank!.id,
+      toAccountId: fundByType.cash!.id,
+      amount: 8000,
+      transactionDate: at(41),
+      notes: 'Bank → cash float refill',
+      createdById: owner?.id,
+    },
+    {
+      id: `${DEMO_PREFIX}fnd-xfer-2`,
+      movementType: 'transfer',
+      fromAccountId: fundByType.bkash!.id,
+      toAccountId: fundByType.bank!.id,
+      amount: 5000,
+      transactionDate: at(63),
+      notes: 'Settle bKash to bank',
+      createdById: owner?.id,
+    },
+    {
+      id: `${DEMO_PREFIX}fnd-add-2`,
+      movementType: 'add',
+      toAccountId: fundByType.cash!.id,
+      amount: 5000,
+      transactionDate: at(70),
+      notes: 'Weekend cash float boost',
+      createdById: owner?.id,
+    },
+    {
+      id: `${DEMO_PREFIX}fnd-wd-1`,
+      movementType: 'withdraw',
+      fromAccountId: fundByType.reserve!.id,
+      amount: 3000,
+      transactionDate: at(80),
+      notes: 'Equipment maintenance withdraw',
+      createdById: owner?.id,
+    },
   ];
   balances.cash = 20000 + 8000 + 5000;
   balances.bank = 95000 + 20000 - 8000 + 5000;
@@ -253,7 +450,7 @@ export async function seedDemoData(prisma: PrismaClient) {
       const subtotal = lines.reduce((sum, l) => sum + (l.isGift ? 0 : l.unitPrice * l.qty), 0);
       const giftTotalValue = lines.reduce(
         (sum, l) => sum + (l.isGift ? l.unitPrice * l.qty : 0),
-        0,
+        0
       );
       const giftItemCount = lines.reduce((sum, l) => sum + (l.isGift ? l.qty : 0), 0);
       let discount = 0;
@@ -283,7 +480,7 @@ export async function seedDemoData(prisma: PrismaClient) {
         posChannel === 'in_store' && rng() < 0.6 ? String(1 + Math.floor(rng() * 12)) : '';
       const hourUtc = 3 + Math.floor(rng() * 12);
       const minute = Math.floor(rng() * 60);
-      const [y, m, d] = day.split('-').map(Number);
+      const [y, m, d] = day.split('-').map(Number) as [number, number, number];
       const createdAt = new Date(Date.UTC(y, m - 1, d, hourUtc, minute, Math.floor(rng() * 60)));
       const businessDate = parseBusinessDate(day);
       const receiptLines = lines.map((l) => ({
@@ -350,26 +547,24 @@ export async function seedDemoData(prisma: PrismaClient) {
     }
   }
 
-  // ── Fixed costs (realistic cafe amounts; paid only when balance allows) ───
-  const fixedSchedule: { date: string; itemId: string; amount: number; method: PaymentMethod }[] = [
-    { date: '2026-06-01', itemId: FIXED_ITEMS[0].id, amount: 22000, method: 'bank' },
-    { date: '2026-06-01', itemId: FIXED_ITEMS[3].id, amount: 28000, method: 'bank' },
-    { date: '2026-06-08', itemId: FIXED_ITEMS[1].id, amount: 4500, method: 'bkash' },
-    { date: '2026-06-08', itemId: FIXED_ITEMS[2].id, amount: 1500, method: 'bkash' },
-    { date: '2026-06-15', itemId: FIXED_ITEMS[4].id, amount: 1800, method: 'cash' },
-    { date: '2026-06-20', itemId: FIXED_ITEMS[5].id, amount: 1200, method: 'cash' },
-    { date: '2026-07-01', itemId: FIXED_ITEMS[0].id, amount: 22000, method: 'bank' },
-    { date: '2026-07-01', itemId: FIXED_ITEMS[3].id, amount: 28000, method: 'bank' },
-    { date: '2026-07-07', itemId: FIXED_ITEMS[1].id, amount: 4800, method: 'bkash' },
-    { date: '2026-07-07', itemId: FIXED_ITEMS[2].id, amount: 1500, method: 'bkash' },
-    { date: '2026-07-16', itemId: FIXED_ITEMS[4].id, amount: 1900, method: 'cash' },
-    { date: '2026-07-22', itemId: FIXED_ITEMS[5].id, amount: 1200, method: 'cash' },
-    { date: '2026-08-01', itemId: FIXED_ITEMS[0].id, amount: 22000, method: 'bank' },
-    { date: '2026-08-01', itemId: FIXED_ITEMS[3].id, amount: 28000, method: 'bank' },
-    { date: '2026-08-06', itemId: FIXED_ITEMS[1].id, amount: 4600, method: 'bkash' },
-    { date: '2026-08-06', itemId: FIXED_ITEMS[2].id, amount: 1500, method: 'bkash' },
-    { date: '2026-08-12', itemId: FIXED_ITEMS[4].id, amount: 1800, method: 'cash' },
-  ];
+  // ── Fixed costs: generated monthly for every month the window touches ─────
+  const fixedSchedule: { date: string; itemId: string; amount: number; method: PaymentMethod }[] =
+    [];
+  const months = [...new Set(days.map((d) => d.slice(0, 7)))];
+  for (const ym of months) {
+    const add = (dayOfMonth: number, itemIdx: number, amount: number, method: PaymentMethod) => {
+      const date = `${ym}-${pad(dayOfMonth, 2)}`;
+      if (date >= START && date <= END) {
+        fixedSchedule.push({ date, itemId: FIXED_ITEMS[itemIdx]!.id, amount, method });
+      }
+    };
+    add(1, 0, 22000, 'bank'); // Shop Rent
+    add(1, 3, 28000, 'bank'); // Staff Salary
+    add(7, 1, 4600, 'bkash'); // Electricity Bill
+    add(7, 2, 1500, 'bkash'); // Internet & Wi-Fi
+    add(15, 4, 1800, 'cash'); // Gas Bill
+    add(20, 5, 1200, 'cash'); // Cleaning Service
+  }
 
   const fixedTxns: Prisma.TransactionCreateManyInput[] = [];
   const fixedRecs: Prisma.FixedCostRecordCreateManyInput[] = [];
@@ -453,10 +648,10 @@ export async function seedDemoData(prisma: PrismaClient) {
   }
 
   console.log(
-    `  … liquidity targets after seed ≈ cash ৳${Math.round(spendable.cash)}, bank ৳${Math.round(spendable.bank)}, bkash ৳${Math.round(spendable.bkash)}`,
+    `  … liquidity targets after seed ≈ cash ৳${Math.round(spendable.cash)}, bank ৳${Math.round(spendable.bank)}, bkash ৳${Math.round(spendable.bkash)}`
   );
   console.log(
-    `  … inserting ${fixedTxns.length + productTxns.length + saleTxns.length} transactions, ${orders.length} orders…`,
+    `  … inserting ${fixedTxns.length + productTxns.length + saleTxns.length} transactions, ${orders.length} orders…`
   );
 
   await createManyBatched(saleTxns, (data) => prisma.transaction.createMany({ data }));

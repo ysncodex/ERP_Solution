@@ -12,10 +12,15 @@ import {
 
 type Range = ReturnType<typeof dateRangeWhere>;
 
+const completedSaleWhere = {
+  type: 'sale' as const,
+  OR: [{ receiptStatus: 'completed' as const }, { receiptStatus: null }],
+};
+
 async function salesByMethod(range: Range) {
-  const rows = await prisma.transaction.groupBy({
+  const rows = await prisma.transaction.groupBy({ 
     by: ['method'],
-    where: { type: 'sale', ...range },
+    where: { ...completedSaleWhere, ...range },
     _sum: { amount: true },
   });
   const get = (m: string) => Number(rows.find((r) => r.method === m)?._sum.amount ?? 0);
@@ -25,7 +30,7 @@ async function salesByMethod(range: Range) {
 async function salesByChannel(range: Range) {
   const rows = await prisma.transaction.groupBy({
     by: ['channel'],
-    where: { type: 'sale', ...range },
+    where: { ...completedSaleWhere, ...range },
     _sum: { amount: true },
   });
   const get = (c: string) => Number(rows.find((r) => r.channel === c)?._sum.amount ?? 0);
@@ -44,7 +49,7 @@ async function expenseTotals(range: Range) {
 
 async function totalSales(range: Range) {
   const agg = await prisma.transaction.aggregate({
-    where: { type: 'sale', ...range },
+    where: { ...completedSaleWhere, ...range },
     _sum: { amount: true },
   });
   return Number(agg._sum.amount ?? 0);

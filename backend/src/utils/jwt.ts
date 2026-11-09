@@ -6,13 +6,15 @@ import type { Role } from '../generated/prisma/enums.js';
 export interface AuthTokenPayload {
   sub: string;
   role: Role;
+  isDemo: boolean;
 }
 
-export function signAuthToken(userId: string, role: Role): string {
+export function signAuthToken(userId: string, role: Role, isDemo = false): string {
   const options: SignOptions = {
-    expiresIn: env.JWT_EXPIRES_IN as SignOptions['expiresIn'],
+    // Demo sessions are short-lived; real sessions use the configured expiry.
+    expiresIn: (isDemo ? '2h' : env.JWT_EXPIRES_IN) as SignOptions['expiresIn'],
   };
-  return jwt.sign({ role }, env.JWT_SECRET, { subject: userId, ...options });
+  return jwt.sign({ role, isDemo }, env.JWT_SECRET, { subject: userId, ...options });
 }
 
 export function verifyAuthToken(token: string): AuthTokenPayload {
@@ -20,5 +22,10 @@ export function verifyAuthToken(token: string): AuthTokenPayload {
   if (typeof decoded === 'string' || !decoded.sub || !('role' in decoded)) {
     throw new Error('Malformed token payload');
   }
-  return { sub: String(decoded.sub), role: decoded.role as Role };
+  return {
+    sub: String(decoded.sub),
+    role: decoded.role as Role,
+    // Tokens issued before this change have no flag: treat them as real sessions.
+    isDemo: decoded.isDemo === true,
+  };
 }

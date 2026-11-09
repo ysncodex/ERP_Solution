@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
-import { loginSchema } from './auth.schema.js';
-import { getPublicUserById, login, loginVisitor } from './auth.service.js';
+import { demoLoginSchema, loginSchema } from './auth.schema.js';
+import { getPublicUserById, login, loginDemo } from './auth.service.js';
 import { ApiError } from '../../utils/ApiError.js';
 
 export async function loginController(req: Request, res: Response) {
@@ -9,8 +9,9 @@ export async function loginController(req: Request, res: Response) {
   res.json(result);
 }
 
-export async function visitorLoginController(_req: Request, res: Response) {
-  const result = await loginVisitor();
+export async function demoLoginController(req: Request, res: Response) {
+  const input = demoLoginSchema.parse(req.body);
+  const result = await loginDemo(input);
   res.json(result);
 }
 

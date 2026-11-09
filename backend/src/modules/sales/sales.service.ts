@@ -9,6 +9,13 @@ const SALE_TYPES = ['sale', 'sale_adjustment'] as const;
 type ReceiptLineInput = NonNullable<SaleCreateInput['receiptLines']>[number];
 type OrderItemInput = NonNullable<SaleCreateInput['orderItems']>[number];
 
+function assertSaleTransaction<T extends { type: string }>(transaction: T | null): T {
+  if (!transaction || !SALE_TYPES.includes(transaction.type as (typeof SALE_TYPES)[number])) {
+    throw ApiError.notFound('Sale not found');
+  }
+  return transaction;
+}
+
 function stripGiftSuffix(name: string): string {
   return name.replace(/ \(Gift\)$/, '');
 }
@@ -187,18 +194,16 @@ export async function getSaleRecord(id: string) {
     where: { id },
     include: { order: true },
   });
-  if (!sale || !SALE_TYPES.includes(sale.type as (typeof SALE_TYPES)[number])) {
-    throw ApiError.notFound('Sale not found');
-  }
-  return sale;
+  return assertSaleTransaction(sale);
 }
 
 export async function updateSaleRecord(id: string, data: SaleUpdateInput) {
-  const existing = await prisma.transaction.findUnique({
-    where: { id },
-    include: { order: true },
-  });
-  if (!existing) throw ApiError.notFound('Sale not found');
+  const existing = assertSaleTransaction(
+    await prisma.transaction.findUnique({
+      where: { id },
+      include: { order: true },
+    }),
+  );
 
   const completingPayment =
     data.receiptStatus === 'completed' &&
@@ -244,8 +249,7 @@ export async function updateSaleRecord(id: string, data: SaleUpdateInput) {
 }
 
 export async function deleteSaleRecord(id: string) {
-  const existing = await prisma.transaction.findUnique({ where: { id } });
-  if (!existing) throw ApiError.notFound('Sale not found');
+  assertSaleTransaction(await prisma.transaction.findUnique({ where: { id } }));
 
   await prisma.order.deleteMany({ where: { saleTransactionId: id } });
   await prisma.transaction.delete({ where: { id } });

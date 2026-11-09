@@ -2,6 +2,7 @@ import { api } from '../client';
 
 // Type definitions for auth
 export type AuthRole = 'owner' | 'manager' | 'visitor';
+export type DemoRole = Exclude<AuthRole, 'visitor'>;
 
 export interface LoginCredentials {
   /** Role-based login matches the backend `/auth/login` contract. */
@@ -9,19 +10,24 @@ export interface LoginCredentials {
   password: string;
 }
 
-export interface AuthResponse {
-  token: string;
-  user: {
-    id: string;
-    name: string;
-    role: string;
-  };
-}
-
 export interface User {
   id: string;
   name: string;
   role: string;
+  /** true for the seeded read-only demo accounts. */
+  isDemo?: boolean;
+}
+
+export interface AuthResponse {
+  token: string;
+  user: User;
+}
+
+function persistSession(response: AuthResponse) {
+  if (response.token) {
+    localStorage.setItem('authToken', response.token);
+    localStorage.setItem('user', JSON.stringify(response.user));
+  }
 }
 
 // Auth Service
@@ -29,20 +35,14 @@ export const authService = {
   // Login user (role + password)
   login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
     const response = await api.post<AuthResponse>('/auth/login', credentials);
-    if (response.token) {
-      localStorage.setItem('authToken', response.token);
-      localStorage.setItem('user', JSON.stringify(response.user));
-    }
+    persistSession(response);
     return response;
   },
 
-  /** Passwordless, read-only tour for LinkedIn / public demos. */
-  loginAsVisitor: async (): Promise<AuthResponse> => {
-    const response = await api.post<AuthResponse>('/auth/visitor');
-    if (response.token) {
-      localStorage.setItem('authToken', response.token);
-      localStorage.setItem('user', JSON.stringify(response.user));
-    }
+  /** Passwordless, read-only demo for the chosen role (sales / public demos). */
+  loginAsDemo: async (role: DemoRole): Promise<AuthResponse> => {
+    const response = await api.post<AuthResponse>('/auth/demo', { role });
+    persistSession(response);
     return response;
   },
 

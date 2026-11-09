@@ -11,10 +11,24 @@ function requireSeedPassword(name: string): string {
   const value = process.env[name]?.trim();
   if (!value) {
     throw new Error(
-      `Missing ${name} in .env — set owner/manager passwords before running npm run db:seed`,
+      `Missing ${name} in .env — set owner/manager passwords before running the seed`
     );
   }
   return value;
+}
+
+/**
+ * Seeding overwrites owner/manager passwords and recreates demo rows, so it must
+ * never run against production. APP_ENV is set per env file (.env.dev / .env.demo).
+ */
+function assertSeedAllowed() {
+  const appEnv = process.env.APP_ENV;
+  if (appEnv !== 'dev' && appEnv !== 'demo') {
+    throw new Error(
+      `Refusing to seed: APP_ENV is "${appEnv ?? 'unset'}". Seeding is only allowed for dev or demo.`
+    );
+  }
+  console.log(`→ APP_ENV=${appEnv}`);
 }
 
 const USERS = [
@@ -29,23 +43,36 @@ function logDatabaseTarget() {
 }
 
 async function seedUsers() {
+  // Real accounts (password login)
   for (const u of USERS) {
     const passwordHash = await bcrypt.hash(u.password, 12);
     await prisma.user.upsert({
-      where: { role: u.role },
+      where: { role_isDemo: { role: u.role, isDemo: false } },
       update: { name: u.name, passwordHash },
-      create: { name: u.name, role: u.role, passwordHash },
+      create: { name: u.name, role: u.role, isDemo: false, passwordHash },
     });
     console.log(`✔ Seeded ${u.role}`);
   }
 
-  const visitorHash = await bcrypt.hash(randomBytes(32).toString('hex'), 12);
-  await prisma.user.upsert({
-    where: { role: 'visitor' },
-    update: { name: 'Visitor' },
-    create: { name: 'Visitor', role: 'visitor', passwordHash: visitorHash },
-  });
-  console.log('✔ Seeded visitor (passwordless, read-only)');
+  // Demo accounts (passwordless, read-only). The hash is random and unusable.
+  const unusableHash = await bcrypt.hash(randomBytes(32).toString('hex'), 12);
+  for (const role of ['owner', 'manager'] as const) {
+    const name = role === 'owner' ? 'Demo Owner' : 'Demo Manager';
+    await prisma.user.upsert({
+      where: { role_isDemo: { role, isDemo: true } },
+      update: { name },
+      create: { name, role, isDemo: true, passwordHash: unusableHash },
+    });
+    console.log(`✔ Seeded demo ${role} (passwordless, read-only)`);
+  }
+
+  // The old single visitor account is replaced by the two demo accounts.
+  try {
+    const removed = await prisma.user.deleteMany({ where: { role: 'visitor' } });
+    if (removed.count > 0) console.log(`✔ Removed ${removed.count} legacy visitor account(s)`);
+  } catch {
+    console.log('• No visitor role in database, nothing to clean up');
+  }
 }
 
 async function seedMenu() {
@@ -110,14 +137,15 @@ async function backfillOrphanSales() {
   if (orphans.length === 0) return;
 
   for (const sale of orphans) {
-    const lines = (sale.receiptLines as Array<{
-      name: string;
-      qty: number;
-      unitPrice: number;
-      menuItemId?: string;
-      isGift?: boolean;
-      giftReason?: string;
-    }>) ?? [];
+    const lines =
+      (sale.receiptLines as Array<{
+        name: string;
+        qty: number;
+        unitPrice: number;
+        menuItemId?: string;
+        isGift?: boolean;
+        giftReason?: string;
+      }>) ?? [];
 
     if (!sale.orderNumber || lines.length === 0) continue;
 
@@ -158,6 +186,7 @@ async function backfillOrphanSales() {
 }
 
 async function main() {
+  assertSeedAllowed();
   logDatabaseTarget();
   await seedUsers();
   await seedMenu();
@@ -165,11 +194,11 @@ async function main() {
 
   const demo = await seedDemoData(prisma);
   console.log(
-    `✔ Demo data ${demo.range}: ${demo.sales} sales, ${demo.productCosts} product costs, ${demo.fixedCosts} fixed costs, ${demo.fundMoves} fund moves (${demo.days} days)`,
+    `✔ Demo data ${demo.range}: ${demo.sales} sales, ${demo.productCosts} product costs, ${demo.fixedCosts} fixed costs, ${demo.fundMoves} fund moves (${demo.days} days)`
   );
   if (demo.liquidity) {
     console.log(
-      `✔ Method balances ≈ cash ৳${Math.round(demo.liquidity.cash)}, bank ৳${Math.round(demo.liquidity.bank)}, bkash ৳${Math.round(demo.liquidity.bkash)}`,
+      `✔ Method balances ≈ cash ৳${Math.round(demo.liquidity.cash)}, bank ৳${Math.round(demo.liquidity.bank)}, bkash ৳${Math.round(demo.liquidity.bkash)}`
     );
   }
 

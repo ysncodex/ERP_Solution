@@ -13,6 +13,7 @@ import reportsRoutes from './modules/reports/reports.routes.js';
 import menuRoutes from './modules/menu/menu.routes.js';
 import suppliersRoutes from './modules/suppliers/suppliers.routes.js';
 import fundsRoutes from './modules/funds/funds.routes.js';
+import { authenticate, blockDemoWrites } from './middleware/auth.js';
 
 export function createApp() {
   const app = express();
@@ -27,7 +28,7 @@ export function createApp() {
       // Cross-Origin-Resource-Policy: same-origin blocks that.
       crossOriginResourcePolicy: { policy: 'cross-origin' },
       crossOriginEmbedderPolicy: false,
-    }),
+    })
   );
   app.use(express.json({ limit: '1mb' }));
   app.use(morgan(isProd ? 'combined' : 'dev'));
@@ -45,7 +46,9 @@ export function createApp() {
   });
 
   // ── Domain routes ────────────────────────────────────────────────────────--
-  app.use('/api/auth', authRoutes);
+  app.use('/api/auth', authRoutes); // public: login, demo, verify. Must stay above the guard.
+  // Everything below requires a valid token, and demo accounts are read-only.
+  app.use('/api', authenticate, blockDemoWrites);
   app.use('/api/sales', salesRoutes);
   app.use('/api/expenses', expensesRoutes);
   app.use('/api/reports', reportsRoutes);
